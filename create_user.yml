@@ -1,0 +1,13 @@
+---
+- name: Create user 'dan' and ensure the user 'dan' is present
+  hosts: hosts
+  become: yes
+  tasks:
+    - name: Create a user
+      user: 
+        name: dan
+        state: present
+        comment: "New user has been created"
+        groups: "wheel"
+        create_home: yes
+        shell: /bin/bash
