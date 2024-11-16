@@ -24,4 +24,9 @@ resource "azurerm_linux_virtual_machine" "tmp-vm" {
     sku       = "22_04-lts"
     version   = "latest"
   }
+
+  provisioner "local-exec" {
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '${self.ipv4_address},' --private-key ${var.pvt_key} -e 'pub_key=${var.pub_key}' sliver_playbook.yml"
+    
+  }
 }
