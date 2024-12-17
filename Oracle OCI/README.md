@@ -10,9 +10,8 @@ This code:
 * Create a Virtual Cloud Network (VCN)
 * Create Private and Public Subnets
 * Deploy an Internet Gateway
-* Deploy a NAT Gateway
 * Create Route Tables
-* Create DHCP Options
+
 
 ## How To deploy the code:
 
@@ -22,3 +21,15 @@ This code:
 4. Execute **terraform apply**
 
 To destroy the environment, execute **terraform destroy**
+
+## Useful Commands
+
+#### List all available shapes in compartment
+```go
+oci compute image list --compartment-id <compartment-id>
+```
+
+#### List compatible shapes for image
+```go
+oci compute shape list --compartment-id <compartment-id> --image-id <image_ocid>
+
