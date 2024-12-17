@@ -1,95 +1,83 @@
-provider "oci" {
-  tenancy_ocid          = "<your_tenancy_ocid>"
-  user_ocid             = "<your_user_ocid>"
-  fingerprint           = "<your_fingerprint>"
-  private_key_path      = "<path_to_your_private_key>"
-  region                = "<your_region>"  # Example: "us-ashburn-1"
+resource "oci_core_vcn" "security_lab_vcn" {
+  cidr_block            = var.vcn_cidr_block
+  display_name          = "security-lab-vcn"
+  compartment_id        = var.compartment
 }
 
-resource "oci_core_vcn" "example_vcn" {
-  cidr_block   = "10.0.0.0/16"
-  display_name = "example-vcn"
-  compartment_id = "<your_compartment_ocid>"
+resource "oci_core_internet_gateway" "security_lab_igw" {
+  display_name          = var.gateway_name
+  vcn_id                = oci_core_vcn.security_lab_vcn.id
+  compartment_id        = var.compartment
 }
 
-resource "oci_core_internet_gateway" "example_igw" {
-  display_name   = "example-igw"
-  is_enabled     = true
-  vcn_id         = oci_core_vcn.example_vcn.id
-  compartment_id = "<your_compartment_ocid>"
-}
+resource "oci_core_route_table" "security_lab_route_table" {
+  vcn_id                = oci_core_vcn.security_lab_vcn.id
+  compartment_id        = var.compartment
 
-resource "oci_core_route_table" "example_route_table" {
-  vcn_id = oci_core_vcn.example_vcn.id
-
-  route_rules = [
-    {
-      cidr_block      = "0.0.0.0/0"
-      network_entity_id = oci_core_internet_gateway.example_igw.id
+  route_rules {
+      cidr_block        = var.route_table_cidr
+      network_entity_id = oci_core_internet_gateway.security_lab_igw.id
     }
-  ]
 }
 
-resource "oci_core_subnet" "example_subnet" {
-  vcn_id              = oci_core_vcn.example_vcn.id
-  cidr_block          = "10.0.1.0/24"
-  display_name        = "example-subnet"
-  compartment_id      = "<your_compartment_ocid>"
+resource "oci_core_subnet" "security_lab_public_subnet" {
+  vcn_id                     = oci_core_vcn.security_lab_vcn.id
+  cidr_block                 = var.public_cidr_block
+  display_name               = "security-lab-public-subnet"
+  compartment_id             = var.compartment
   prohibit_public_ip_on_vnic = false
-  route_table_id      = oci_core_route_table.example_route_table.id
+  route_table_id             = oci_core_route_table.security_lab_route_table.id
 }
 
-resource "oci_core_security_list" "example_security_list" {
-  display_name   = "example-security-list"
-  compartment_id = "<your_compartment_ocid>"
-  vcn_id         = oci_core_vcn.example_vcn.id
+resource "oci_core_subnet" "security_lab_private_subnet" {
+  vcn_id                      = oci_core_vcn.security_lab_vcn.id
+  cidr_block                  = var.private_cidr_block
+  display_name                = "security-lab-private-subnet"
+  compartment_id              = var.compartment
+  route_table_id              = oci_core_route_table.security_lab_route_table.id
+}
 
-  egress_security_rules = [
-    {
+resource "oci_core_security_list" "security_lab_fw" {
+  display_name   = "security-lab-fw"
+  compartment_id = var.compartment
+  vcn_id         = oci_core_vcn.security_lab_vcn.id
+
+  egress_security_rules {
       protocol    = "all"
       destination = "0.0.0.0/0"
     }
-  ]
-
-  ingress_security_rules = [
-    {
+  
+  ingress_security_rules {
       protocol      = "6" # TCP
       source        = "0.0.0.0/0"
-      tcp_options = {
-        "min" = 22
-        "max" = 22
+      tcp_options {
+         min = 22
+         max = 22
       }
     }
-  ]
 }
 
-resource "oci_core_instance" "example_instance" {
-  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  compartment_id      = "<your_compartment_ocid>"
-  display_name        = "example-instance"
-  shape               = "VM.Standard.E2.1" # Choose your shape
+resource "oci_core_instance" "security_lab_instance" {
+  availability_domain = data.oci_identity_availability_domains.security_lab_ad.availability_domains[0].name
+  compartment_id      = var.compartment
+  display_name        = "security-lab-instance"
+  shape               = "VM.Standard2.4" # Choose your shape
 
   create_vnic_details {
-    subnet_id        = oci_core_subnet.example_subnet.id
+    subnet_id        = oci_core_subnet.security_lab_private_subnet.id
     assign_public_ip = true
   }
 
   metadata = {
-    ssh_authorized_keys = file("~/.ssh/id_rsa.pub") # Path to your public key
+    ssh_authorized_keys = file("~/.ssh/oci_key.pub") # Path to your public key
   }
 
   source_details {
     source_type = "image"
-    source_id   = data.oci_core_images.default_image.id
+    source_id   = var.source_id
   }
 }
 
-data "oci_identity_availability_domains" "ads" {
-  compartment_id = "<your_compartment_ocid>"
-}
-
-data "oci_core_images" "default_image" {
-  compartment_id = "<your_compartment_ocid>"
-  operating_system = "Oracle Linux"
-  operating_system_version = "8"
+data "oci_identity_availability_domains" "security_lab_ad" {
+  compartment_id = var.tenancy_ocid
 }
