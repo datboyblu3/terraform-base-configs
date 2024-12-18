@@ -81,3 +81,8 @@ resource "oci_core_instance" "security_lab_instance" {
 data "oci_identity_availability_domains" "security_lab_ad" {
   compartment_id = var.tenancy_ocid
 }
+
+ provisioner "local-exec" {
+    working_dir = var.dir
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u opc -i '${self.public_ip},' --private-key '~/.ssh/oci_key' -e '~/.ssh/oci_key.pub' create_user.yml"
+  }
