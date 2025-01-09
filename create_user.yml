@@ -1,13 +1,29 @@
 ---
-- name: Create user 'dan' and ensure the user 'dan' is present
-  hosts: hosts
-  become: yes
+- name: Create user 'dan' on OCI compute instance
+  hosts: all
+  become: true  # Run tasks as root using privilege escalation
+  vars:
+    new_user: "dan"
+
   tasks:
-    - name: Create a user
-      user: 
-        name: dan
+    - name: Ensure the user 'dan' exists
+      user:
+        name: "{{ new_user }}"
         state: present
-        comment: "New user has been created"
-        groups: "wheel"
-        create_home: yes
         shell: /bin/bash
+        create_home: true
+
+    - name: Set up SSH authorized keys for 'dan'
+      authorized_key:
+        user: "{{ new_user }}"
+        state: present
+        key: "{{ lookup('file', 'pub_key') }}"
+      when: lookup('file', 'pub_key', errors='ignore')
+
+    - name: Add 'dan' to sudoers with no password prompt
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^{{ new_user }}'
+        line: "{{ new_user }} ALL=(ALL) NOPASSWD:ALL"
+        validate: 'visudo -cf %s'
