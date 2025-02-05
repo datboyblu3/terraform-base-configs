@@ -1,7 +1,7 @@
 ---
 - name: Create user 'dan' on OCI compute instance
   hosts: all
-  become: true  # Run tasks as root using privilege escalation
+  become: true # Run tasks as root using privilege escalation
   vars:
     new_user: "dan"
 
@@ -13,8 +13,8 @@
         shell: /bin/bash
         create_home: true
 
-    - name: Set up SSH authorized keys for 'dan'
-      authorized_key:
+    - name: Set authorized key defining key options
+      ansible.posix.authorized_key:
         user: "{{ new_user }}"
         state: present
         key: "{{ lookup('file', 'pub_key') }}"
@@ -24,6 +24,6 @@
       lineinfile:
         path: /etc/sudoers
         state: present
-        regexp: '^{{ new_user }}'
+        regexp: "^{{ new_user }}"
         line: "{{ new_user }} ALL=(ALL) NOPASSWD:ALL"
-        validate: 'visudo -cf %s'
+        validate: "visudo -cf %s"
