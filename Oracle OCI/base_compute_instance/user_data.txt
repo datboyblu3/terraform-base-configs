@@ -1,0 +1,47 @@
+user_data           = base64encode(<<-EOF
+                            # Step 1: Install expect and change root password
+                            yum install -y expect
+                            cat << 'EOL1' > /root/change_root_password.exp
+                            #!/usr/bin/expect
+                            set timeout -1
+                            spawn passwd root
+                            expect "New password:"
+                            send "ChangeMe\r"
+                            expect "Retype new password:"
+                            send "ChangeMe\r"
+                            expect eof
+                            EOL1
+    
+                            chmod +x /root/change_root_password.exp
+                            /root/change_root_password.exp
+
+                            # Step 2: Stop and disable firewalld, supplying the password
+                            cat << 'EOL2' > /root/disable_firewalld.exp
+                            #!/usr/bin/expect
+                            set timeout -1
+                            spawn systemctl stop firewalld
+                            expect "Password for root:"
+                            send "ChangeMe\r"
+                            expect eof
+
+                            spawn systemctl disable firewalld
+                            expect "Password for root:"
+                            send "ChangeMe\r"
+                            expect eof
+                            EOL2
+
+                            chmod +x /root/disable_firewalld.exp
+                            /root/disable_firewalld.exp
+                          EOF
+    )
+
+
+    # Generate Ansible inventory file
+resource "local_file" "ansible_inventory" {
+  content = <<EOT
+[targets]
+${oci_core_instance.security_lab_instance.public_ip} ansible_ssh_user=opc ansible_ssh_private_key_file=~/.ssh/oci_key
+EOT
+
+  filename = "inventory"
+}
