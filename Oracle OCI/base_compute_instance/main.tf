@@ -70,42 +70,6 @@ resource "oci_core_instance" "security_lab_instance" {
 
   metadata = {
     ssh_authorized_keys = file("~/.ssh/oci_key.pub") # Path to your public key
-    user_data           = base64encode(<<-EOF
-                            # Step 1: Install expect and change root password
-                            yum install -y expect
-                            cat << 'EOL1' > /root/change_root_password.exp
-                            #!/usr/bin/expect
-                            set timeout -1
-                            spawn passwd root
-                            expect "New password:"
-                            send "ChangeMe\r"
-                            expect "Retype new password:"
-                            send "ChangeMe\r"
-                            expect eof
-                            EOL1
-    
-                            chmod +x /root/change_root_password.exp
-                            /root/change_root_password.exp
-
-                            # Step 2: Stop and disable firewalld, supplying the password
-                            cat << 'EOL2' > /root/disable_firewalld.exp
-                            #!/usr/bin/expect
-                            set timeout -1
-                            spawn systemctl stop firewalld
-                            expect "Password for root:"
-                            send "ChangeMe\r"
-                            expect eof
-
-                            spawn systemctl disable firewalld
-                            expect "Password for root:"
-                            send "ChangeMe\r"
-                            expect eof
-                            EOL2
-
-                            chmod +x /root/disable_firewalld.exp
-                            /root/disable_firewalld.exp
-                          EOF
-    )
   }
 
   source_details {
@@ -128,7 +92,7 @@ resource "oci_core_instance" "security_lab_instance" {
 
  provisioner "local-exec" {
     working_dir = var.dir
-    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u opc -i '${self.public_ip},'  --private-key '~/.ssh/oci_key' -e '~/.ssh/oci_key.pub' sliver_beacon.yml -vvv"
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i '${self.public_ip},'  -u opc --private-key '~/.ssh/oci_key' -e '~/.ssh/oci_key.pub' create_user.yml -vvv"
   }
 
 }
