@@ -1,0 +1,32 @@
+---
+- name: "DEPLOY WAZUH AGENT 4.10.1-1 ON Oracle RedHat Linux ENDPOINTS"
+  hosts: unix
+  become: yes
+  remote_user: opc
+  vars:
+    wazuh_server: "192.168.86.31"
+
+  tasks:
+    - name: "0 - Download the Wazuh agent on the OCI instance"
+      tags: download_wazuh_agent
+      ansible.builtin.get_url:
+        url: https://packages.wazuh.com/4.x/yum/wazuh-agent-4.10.1-1.x86_64.rpm
+        dest: /tmp
+        mode: "0774"
+
+    - name: "1 - Copy the Wazuh agent package to the Ubuntu endpoint"
+      tags: copy_wazuh_deb
+      copy:
+        src: /tmp/wazuh-agent-4.10.1-1.x86_64.rpm
+        dest: /tmp
+        mode: "0774"
+
+    - name: "2 - Deploy the Wazuh agent on the Ubuntu endpoint"
+      ansible.builtin.shell: WAZUH_MANAGER={{wazuh_server}} WAZUH_AGENT_NAME="Oracle-RH-Linux" sudo rpm -ivh /tmp/wazuh-agent-4.10.1-1.x86_64.rpm
+      when: ansible_os_family == "RedHat"
+
+    - name: "3 - Start and enable the Wazuh agent service"
+      systemd:
+        name: wazuh-agent
+        state: started
+        enabled: yes
