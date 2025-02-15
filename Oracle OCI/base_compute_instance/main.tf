@@ -42,11 +42,14 @@ resource "oci_core_security_list" "security_lab_fw" {
   compartment_id = var.compartment
   vcn_id         = oci_core_vcn.security_lab_vcn.id
 
+  # Outbound Rules
   egress_security_rules {
     protocol    = "all"
     destination = "0.0.0.0/0"
+    description = "Allow all outbound traffic"
   }
 
+  # Inbound Rules
   ingress_security_rules {
     protocol = "6" # TCP
     source   = "0.0.0.0/0"
@@ -54,7 +57,29 @@ resource "oci_core_security_list" "security_lab_fw" {
       min = 22
       max = 22
     }
+    description = "Allow SSH traffic"
   }
+
+  ingress_security_rules{
+    protocol = "6" # TCP
+    source   = "0.0.0.0/0"
+    tcp_options {
+      min = 80
+      max = 80
+    }
+    description = "Allow HTTP traffic"
+  }
+
+  ingress_security_rules{
+    protocol = "6" # TCP
+    source   = "0.0.0.0/0"
+    tcp_options {
+      min = 443
+      max = 443
+    }
+    description = "Allow HTTPS traffic"
+  }
+
 }
 
 resource "oci_core_instance" "security_lab_instance" {
@@ -92,10 +117,11 @@ resource "oci_core_instance" "security_lab_instance" {
 
  provisioner "local-exec" {
     working_dir = var.dir
-    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i '${self.public_ip},'  -u opc --private-key '~/.ssh/oci_key' -e '~/.ssh/oci_key.pub' create_user.yml -vvv"
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i '${self.public_ip},'  -u opc --private-key '~/.ssh/oci_key' -e '~/.ssh/oci_key.pub' deploy_agent.yml -vvv"
   }
 
 }
+
 
 data "oci_identity_availability_domains" "security_lab_ad" {
   compartment_id = var.tenancy_ocid
